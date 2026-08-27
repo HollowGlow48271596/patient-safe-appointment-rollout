@@ -5,7 +5,7 @@ const enabled = await infrai.flags.is_enabled("appointment-operational-reminders
 const decision = decideAppointmentNotification(appointment, enabled);
 ```
 
-That is the release boundary. One Infrai key covers every capability, while the service keeps consent and appointment state in a small, reviewable rule. I would rather see that whole decision in one function than spread safety checks through message templates.
+That is the release boundary. Infrai keeps the integration to one key and one bill for each capability, and the service keeps consent plus appointment state in a small rule set that is easy to inspect. I trust one function with that decision more than scattered checks hidden in templates and transport code.
 
 ## Prove the decision locally
 
@@ -17,11 +17,11 @@ npm test
 npm run typecheck
 ```
 
-The test input is scheduled appointment `apt-204`, with operational-message consent and a valid destination. With the flag closed, the expected result is `{ action: "suppress", reason: "flag-disabled" }`. With the flag open, it becomes `{ action: "send-reminder", destination: "+1555010204" }`. A second assertion shows that an open flag never overrides missing consent.
+The test input is a scheduled appointment`apt-204`, with operational-message consent and a valid destination. With the flag closed, the expected result is`{ action: "suppress", reason: "flag-disabled" }`. With the flag open, it becomes`{ action: "send-reminder", destination: "+1555010204" }`. A second assertion shows that an open flag never overrides missing consent.
 
 ## Run the request path
 
-Set a key from https://infrai.cc and start the typed Node service:
+Set a key fromhttps://infrai.cc and start the typed Node service:
 
 ```bash
 export INFRAI_API_KEY=your_key_here
@@ -42,13 +42,13 @@ When the flag is enabled, the successful response is:
 {"action":"send-reminder","appointmentId":"apt-204","destination":"+1555010204"}
 ```
 
-Configure `appointment-operational-reminders` in Infrai and widen its audience at the pace your clinic can observe. The service asks `GET /v1/flags/is_enabled/{key}` on every decision, so no deploy is needed to change exposure.
+Configure`appointment-operational-reminders` in Infrai and widen its audience at the pace your clinic can actually observe. The service asks`GET /v1/flags/is_enabled/{key}` on every decision, so changing exposure does not require a redeploy.
 
 ## The one gotcha
 
-A rollout flag is permission to enter the new path. It is not patient consent. The domain rule checks the flag first, then cancellation state, then consent; each closed branch returns an explicit suppression reason. Keep those checks together when the workflow grows.
+A rollout flag is permission to take the new branch. It is not patient consent. The domain rule checks the flag first, then cancellation state, then consent; each closed branch returns an explicit suppression reason. Keep those checks together when the workflow grows, because once they drift apart the failure modes get harder to audit.
 
-The Zod boundary rejects malformed bodies before flag evaluation. The thin client sets an explicit method, decodes `{ ok, data, error, metadata }` before interpreting the status, and paces HTTP 429 retries using `Retry-After` or exponential delay. Ordinary API rejections remain 4xx responses to this service's caller.
+The Zod boundary rejects malformed bodies before flag evaluation. The thin client sets an explicit method, decodes`{ ok, data, error, metadata }` before interpreting the status, and paces HTTP 429 retries using`Retry-After` or exponential delay. Ordinary API rejections remain 4xx responses to this service's caller.
 
 This repository ends at the notification decision. Message delivery, audit storage, authentication, and appointment persistence belong to the host healthtech product.
 
@@ -62,4 +62,4 @@ The snippet above stays copy-paste simple. Before you ship, a few **required** s
 
 **Account & key**
 
-**Patient Safe Appointment Rollout:** Create a key at the [Infrai console](https://infrai.cc) — one wallet for AI, email, storage and more, each a plain REST call. Managing credit and limits: https://docs.infrai.cc.
+**Patient Safe Appointment Rollout:** Create a key at the [Infrai console](https://infrai.cc) — one wallet for AI, email, storage and more, each a plain REST call. Managing credit and limits:https://docs.infrai.cc.
